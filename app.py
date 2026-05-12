@@ -49,7 +49,7 @@ ALLOWED_EXTENSIONS = {'pdf', 'html', 'htm', 'jpg', 'zip'}
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev_secret_key')
-DATABASE_URL = 'sqlite:///quickform.db'
+DATABASE_URL = 'sqlite:///db/quickform.db'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB 限制
 app.config['JSON_AS_ASCII'] = False  # 确保JSON响应中的中文正确显示，不转义为Unicode
