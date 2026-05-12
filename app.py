@@ -489,6 +489,42 @@ def call_ai_model(prompt, ai_config):
             logger.error(f"Ollama API调用失败: {str(e)}")
             raise Exception(f"Ollama API调用失败: {str(e)}")
 
+    elif ai_config.selected_model == 'custom_openai':
+        model_cfg = get_model_config('custom_openai')
+        api_url = model_cfg.api_url if model_cfg else 'https://api.openai.com/v1/chat/completions'
+        api_key = model_cfg.api_key if model_cfg else ''
+        model_name = model_cfg.model_name if model_cfg else 'gpt-4o-mini'
+        
+        if not api_url.startswith('http'):
+            api_url = 'https://' + api_url
+        
+        url = api_url
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {api_key}"
+        }
+        data = {
+            "model": model_name,
+            "messages": [
+                {"role": "system", "content": "你是一个专业的数据分析助手。请基于用户提供的数据，生成一份详细、专业、有洞察力的分析报告。"},
+                {"role": "user", "content": prompt}
+            ],
+            "temperature": 0.7,
+            "max_tokens": 4000
+        }
+
+        try:
+            logger.info(f"调用自定义OpenAI兼容API，URL: {url}，模型: {model_name}")
+            response = requests.post(url, headers=headers, json=data, timeout=120)
+            logger.info(f"自定义OpenAI API响应状态码: {response.status_code}")
+            logger.info(f"自定义OpenAI API响应内容: {response.text[:500]}")
+            response.raise_for_status()
+            result = response.json()
+            return result["choices"][0]["message"]["content"]
+        except Exception as e:
+            logger.error(f"自定义OpenAI API调用失败: {str(e)}")
+            raise Exception(f"自定义OpenAI API调用失败: {str(e)}")
+
     else:
         raise Exception(f"不支持的AI模型: {ai_config.selected_model}")
 
@@ -1548,18 +1584,21 @@ def test_api_key():
             return jsonify({'success': False, 'error': '缺少必要参数'}), 400
 
         class TestModelConfig:
-            def __init__(self, model_name, api_key, api_url, extra_settings):
-                self.model_name = model_name
+            def __init__(self, model_name, api_key, api_url, extra_settings, actual_model_name=None):
+                self.model_name = actual_model_name if actual_model_name else model_name
                 self.api_key = api_key
                 self.api_url = api_url
                 self.extra_settings = extra_settings
 
         class TestAIConfig:
-            def __init__(self, model, api_key, api_url, model_name):
+            def __init__(self, model, api_key, api_url, model_name, extra_settings=''):
                 self.selected_model = model
-                self.model_configs = [TestModelConfig(model, api_key, api_url, model_name or ('llama3.2' if model == 'ollama' else ''))]
+                self.model_configs = [TestModelConfig(model, api_key, api_url, extra_settings, model_name)]
 
-        test_config = TestAIConfig(model, api_key, api_url, model_name)
+        if model == 'custom_openai':
+            test_config = TestAIConfig(model, api_key, api_url, model_name, api_key)
+        else:
+            test_config = TestAIConfig(model, api_key, api_url, model_name or ('llama3.2' if model == 'ollama' else ''))
 
         test_prompt = '这是一个API密钥测试，请回复"测试成功"'
 
@@ -1921,6 +1960,20 @@ def profile():
                             extra_settings=extra_settings
                         )
                         db.add(cfg)
+                
+                custom_openai_api_key = request.form.get('custom_openai_api_key', '')
+                custom_openai_api_url = request.form.get('custom_openai_api_url', '')
+                custom_openai_name = request.form.get('custom_openai_name', '')
+                custom_openai_model = request.form.get('custom_openai_model', '')
+                if custom_openai_api_key or custom_openai_api_url:
+                    cfg = AIModelConfig(
+                        ai_config_id=ai_config.id,
+                        model_name=custom_openai_model if custom_openai_model else 'gpt-4o-mini',
+                        api_key=custom_openai_api_key,
+                        api_url=custom_openai_api_url if custom_openai_api_url else 'https://api.openai.com/v1/chat/completions',
+                        extra_settings=custom_openai_name
+                    )
+                    db.add(cfg)
 
                 db.commit()
                 flash('AI配置更新成功', 'success')
