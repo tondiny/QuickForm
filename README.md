@@ -21,10 +21,26 @@ QuickForm是温州科技高级中学AI科创中心联合温州大学开发的智
 ## 最新升级说明
 
 版本2.0新增功能：
+
 - 新增“QF数据互联”功能，支持从quickform.cn在线版导入任务（ZIP文件导入和API导入），导入任务时自动下载并替换HTML附件中的API地址
 - AI配置中，支持Ollama本地AI模型连接
 - 用户信息修改：支持修改用户名和密码
 - 数据任务支持无限附件上传，自动生成二维码，扫描即可访问
+
+版本2.0.1新增功能：
+
+- 新增Dockerfile和docker-compose.yaml文件，方便在本地构建容器
+  - 镜像构建命令：
+  ```Shell
+  docker build -t quickform:2.0.1 .
+  ```
+  - 容器启动命令，按需要修改docker-compose.yaml文件后：
+  ```Shell
+  docker-compose up -d
+  ```
+
+- AI模型配置中新增自定义OpenAI模型配置
+- 修改一处分析报告不能保存的问题
 
 ## 系统要求
 
@@ -32,8 +48,8 @@ QuickForm是温州科技高级中学AI科创中心联合温州大学开发的智
 
 ## 系统演示
 
-https://quickform.cn
+<https://quickform.cn>
 
 ## 开源地址
 
-https://gitee.com/wstlab/quickform
+<https://gitee.com/wstlab/quickform>

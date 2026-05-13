@@ -1,0 +1,12 @@
+services:
+  quickform:
+      container_name: quickform
+      network_mode: bridge
+      image: quickform:2.0.1 #镜像没有上传仓库，需自行build
+      ports:
+        - 5400:5001 #修改5400为需要的端口
+      volumes: #数据卷挂载，需要创建data目录，并在data目录下创建db、uploads、reports目录
+        - ./data/db:/db
+        - ./data/uploads:/static/uploads
+        - ./data/reports:/static/reports
+      restart: unless-stopped
