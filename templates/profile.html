@@ -145,22 +145,22 @@
                                 <h5 class="mt-4 mb-3" style="color: #111827; font-weight: 600;">自定义OpenAI兼容接口 配置</h5>
                                 <div class="form-group">
                                     <label for="custom_openai_name" style="font-weight: 600; color: #111827;">AI模型商名称</label>
-                                    <input type="text" class="form-control" id="custom_openai_name" name="custom_openai_name" value="{{ model_configs_dict['custom_openai'].extra_settings if model_configs_dict.get('custom_openai') else '' }}" placeholder="如：OpenAI、Azure OpenAI、自定义服务商" style="border: 1px solid #d1d5db; border-radius: 6px; padding: 0.625rem 0.875rem;">
+                                    <input type="text" class="form-control" id="custom_openai_name" name="custom_openai_name" value="{{ custom_openai_name }}" placeholder="如：OpenAI、Azure OpenAI、自定义服务商" style="border: 1px solid #d1d5db; border-radius: 6px; padding: 0.625rem 0.875rem;">
                                     <small class="form-text text-muted" style="color: #6b7280;">请输入AI模型服务商名称，用于标识</small>
                                 </div>
                                 <div class="form-group">
                                     <label for="custom_openai_api_url" style="font-weight: 600; color: #111827;">API地址</label>
-                                    <input type="text" class="form-control" id="custom_openai_api_url" name="custom_openai_api_url" value="{{ model_configs_dict['custom_openai'].api_url if model_configs_dict.get('custom_openai') else 'https://api.openai.com/v1/chat/completions' }}" placeholder="https://api.openai.com/v1/chat/completions" style="border: 1px solid #d1d5db; border-radius: 6px; padding: 0.625rem 0.875rem;">
+                                    <input type="text" class="form-control" id="custom_openai_api_url" name="custom_openai_api_url" value="{{ custom_openai_api_url }}" placeholder="https://api.openai.com/v1/chat/completions" style="border: 1px solid #d1d5db; border-radius: 6px; padding: 0.625rem 0.875rem;">
                                     <small class="form-text text-muted" style="color: #6b7280;">请输入OpenAI兼容的API地址</small>
                                 </div>
                                 <div class="form-group">
                                     <label for="custom_openai_api_key" style="font-weight: 600; color: #111827;">API Key</label>
-                                    <input type="password" class="form-control api-key-input" id="custom_openai_api_key" name="custom_openai_api_key" value="{{ model_configs_dict['custom_openai'].api_key if model_configs_dict.get('custom_openai') else '' }}" placeholder="sk-xxxxxxxxxxxxxxxx" style="border: 1px solid #d1d5db; border-radius: 6px; padding: 0.625rem 0.875rem;">
+                                    <input type="password" class="form-control api-key-input" id="custom_openai_api_key" name="custom_openai_api_key" value="{{ custom_openai_api_key }}" placeholder="sk-xxxxxxxxxxxxxxxx" style="border: 1px solid #d1d5db; border-radius: 6px; padding: 0.625rem 0.875rem;">
                                     <small class="form-text text-muted" style="color: #6b7280;">请输入您的API密钥</small>
                                 </div>
                                 <div class="form-group">
                                     <label for="custom_openai_model" style="font-weight: 600; color: #111827;">模型名称</label>
-                                    <input type="text" class="form-control" id="custom_openai_model" name="custom_openai_model" value="{{ model_configs_dict['custom_openai'].model_name if model_configs_dict.get('custom_openai') else 'gpt-4o-mini' }}" placeholder="gpt-4o-mini" style="border: 1px solid #d1d5db; border-radius: 6px; padding: 0.625rem 0.875rem;">
+                                    <input type="text" class="form-control" id="custom_openai_model" name="custom_openai_model" value="{{ custom_openai_model_name }}" placeholder="gpt-4o-mini" style="border: 1px solid #d1d5db; border-radius: 6px; padding: 0.625rem 0.875rem;">
                                     <small class="form-text text-muted" style="color: #6b7280;">请输入要使用的模型名称</small>
                                 </div>
                                 <button type="button" class="btn btn-info mt-2 test-api-key" data-model="custom_openai" data-name-field="custom_openai_name" data-api-url-field="custom_openai_api_url" data-api-key-field="custom_openai_api_key" data-model-field="custom_openai_model" style="font-weight: 500; background-color: #3b82f6; border: none; border-radius: 6px; padding: 0.625rem 1.5rem;">测试API密钥</button>
@@ -309,10 +309,12 @@
             const apiKeyField = this.getAttribute('data-api-key-field');
             const apiUrlField = this.getAttribute('data-api-url-field');
             const modelField = this.getAttribute('data-model-field');
+            const nameField = this.getAttribute('data-name-field');
 
             let apiKey = '';
             let apiUrl = '';
             let modelName = '';
+            let name = '';
 
             if (apiKeyField) {
                 apiKey = document.getElementById(apiKeyField).value;
@@ -323,10 +325,22 @@
             if (modelField) {
                 modelName = document.getElementById(modelField).value;
             }
+            if (nameField) {
+                name = document.getElementById(nameField).value;
+            }
 
             if (model === 'ollama') {
                 if (!apiUrl) {
                     alert('请先输入Ollama API地址');
+                    return;
+                }
+            } else if (model === 'custom_openai') {
+                if (!apiKey) {
+                    alert('请先输入API密钥');
+                    return;
+                }
+                if (!apiUrl) {
+                    alert('请先输入API地址');
                     return;
                 }
             } else {
@@ -341,17 +355,21 @@
             this.disabled = true;
 
             try {
+                const requestData = {
+                    model: model,
+                    api_key: apiKey,
+                    api_url: apiUrl,
+                    model_name: modelName
+                };
+                if (name) {
+                    requestData.name = name;
+                }
                 const response = await fetch('/test_api_key', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({
-                        model: model,
-                        api_key: apiKey,
-                        api_url: apiUrl,
-                        model_name: modelName
-                    })
+                    body: JSON.stringify(requestData)
                 });
 
                 const result = await response.json();

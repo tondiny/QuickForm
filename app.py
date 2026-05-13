@@ -493,7 +493,14 @@ def call_ai_model(prompt, ai_config):
         model_cfg = get_model_config('custom_openai')
         api_url = model_cfg.api_url if model_cfg else 'https://api.openai.com/v1/chat/completions'
         api_key = model_cfg.api_key if model_cfg else ''
-        model_name = model_cfg.model_name if model_cfg else 'gpt-4o-mini'
+        
+        model_name = 'gpt-4o-mini'
+        if model_cfg and model_cfg.extra_settings:
+            try:
+                extra_settings = json.loads(model_cfg.extra_settings)
+                model_name = extra_settings.get('model', 'gpt-4o-mini')
+            except:
+                pass
         
         if not api_url.startswith('http'):
             api_url = 'https://' + api_url
@@ -540,6 +547,7 @@ def get_template_env():
             loader=FileSystemLoader(template_dir),
             autoescape=select_autoescape(['html', 'xml'])
         )
+        _template_env.globals['get_app_name'] = lambda: APP_NAME
     return _template_env
 
 def save_analysis_report(task_id, report_content):
@@ -1579,26 +1587,33 @@ def test_api_key():
         api_key = data.get('api_key', '')
         api_url = data.get('api_url', '')
         model_name = data.get('model_name', '')
+        name = data.get('name', '')
 
         if not model:
             return jsonify({'success': False, 'error': '缺少必要参数'}), 400
 
         class TestModelConfig:
-            def __init__(self, model_name, api_key, api_url, extra_settings, actual_model_name=None):
-                self.model_name = actual_model_name if actual_model_name else model_name
+            def __init__(self, model_name, api_key, api_url, extra_settings):
+                self.model_name = model_name
                 self.api_key = api_key
                 self.api_url = api_url
                 self.extra_settings = extra_settings
 
         class TestAIConfig:
-            def __init__(self, model, api_key, api_url, model_name, extra_settings=''):
+            def __init__(self, model, model_config):
                 self.selected_model = model
-                self.model_configs = [TestModelConfig(model, api_key, api_url, extra_settings, model_name)]
+                self.model_configs = [model_config]
 
         if model == 'custom_openai':
-            test_config = TestAIConfig(model, api_key, api_url, model_name, api_key)
+            extra_settings = json.dumps({'name': name, 'model': model_name})
+            test_model_config = TestModelConfig('custom_openai', api_key, api_url if api_url else 'https://api.openai.com/v1/chat/completions', extra_settings)
+            test_config = TestAIConfig('custom_openai', test_model_config)
+        elif model == 'ollama':
+            test_model_config = TestModelConfig('ollama', '', api_url if api_url else 'http://localhost:11434', model_name if model_name else 'llama3.2')
+            test_config = TestAIConfig('ollama', test_model_config)
         else:
-            test_config = TestAIConfig(model, api_key, api_url, model_name or ('llama3.2' if model == 'ollama' else ''))
+            test_model_config = TestModelConfig(model, api_key, '', '')
+            test_config = TestAIConfig(model, test_model_config)
 
         test_prompt = '这是一个API密钥测试，请回复"测试成功"'
 
@@ -1968,10 +1983,10 @@ def profile():
                 if custom_openai_api_key or custom_openai_api_url:
                     cfg = AIModelConfig(
                         ai_config_id=ai_config.id,
-                        model_name=custom_openai_model if custom_openai_model else 'gpt-4o-mini',
+                        model_name='custom_openai',
                         api_key=custom_openai_api_key,
                         api_url=custom_openai_api_url if custom_openai_api_url else 'https://api.openai.com/v1/chat/completions',
-                        extra_settings=custom_openai_name
+                        extra_settings=json.dumps({'name': custom_openai_name, 'model': custom_openai_model})
                     )
                     db.add(cfg)
 
@@ -2019,13 +2034,30 @@ def profile():
             return redirect(url_for('profile', active_tab=active_tab))
 
         model_configs_dict = {}
+        custom_openai_name = ''
+        custom_openai_api_url = 'https://api.openai.com/v1/chat/completions'
+        custom_openai_api_key = ''
+        custom_openai_model_name = 'gpt-4o-mini'
+        
         if ai_config:
             for mc in ai_config.model_configs:
                 model_configs_dict[mc.model_name] = mc
+                if mc.model_name == 'custom_openai':
+                    custom_openai_api_key = mc.api_key
+                    custom_openai_api_url = mc.api_url
+                    if mc.extra_settings:
+                        try:
+                            extra_settings = json.loads(mc.extra_settings)
+                            custom_openai_name = extra_settings.get('name', '')
+                            custom_openai_model_name = extra_settings.get('model', 'gpt-4o-mini')
+                        except:
+                            pass
 
         qf_config = db.query(QFConfig).filter_by(user_id=current_user.id).first()
 
-        return render_template('profile.html', user=current_user, ai_config=ai_config, model_configs_dict=model_configs_dict, qf_config=qf_config)
+        return render_template('profile.html', user=current_user, ai_config=ai_config, model_configs_dict=model_configs_dict, qf_config=qf_config,
+                               custom_openai_name=custom_openai_name, custom_openai_api_url=custom_openai_api_url, 
+                               custom_openai_api_key=custom_openai_api_key, custom_openai_model_name=custom_openai_model_name)
     finally:
         db.close()
 
